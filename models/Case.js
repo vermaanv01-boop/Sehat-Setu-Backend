@@ -34,9 +34,12 @@ const caseSchema = new mongoose.Schema({
     type: String
   },
   files: [{
-    // URLs to uploaded images/reports
-    url: String,
-    fileType: String,
+    fileName: String,
+    fileUrl: String,
+    uploadedBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User'
+    },
     uploadedAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });

@@ -29,7 +29,9 @@ exports.createPatientAndCase = async (req, res) => {
     });
     
     // Notify all connected specialists (or all users) of a new case
-    io.getIo().emit('new_case', newCase);
+    if(io.getIo()) {
+      io.getIo().emit('new_case', newCase);
+    }
 
     res.status(201).json({ success: true, patient, case: newCase });
   } catch (error) {
@@ -37,7 +39,40 @@ exports.createPatientAndCase = async (req, res) => {
   }
 };
 
-// ... (other methods unchanged up to updateCase)
+// @desc    Get all cases
+// @route   GET /api/cases
+// @access  Private
+exports.getCases = async (req, res) => {
+  try {
+    const cases = await Case.find().populate('patient').sort('-createdAt');
+    res.status(200).json({ success: true, count: cases.length, data: cases });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Upload file for a case
+// @route   POST /api/cases/:id/upload
+// @access  Private
+exports.uploadCaseFile = async (req, res) => {
+  try {
+    const caseObj = await Case.findById(req.params.id);
+    if (!caseObj) return res.status(404).json({ success: false, message: 'Case not found' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'Please upload a file' });
+
+    caseObj.files = caseObj.files || [];
+    caseObj.files.push({
+      fileName: req.file.filename,
+      fileUrl: `/uploads/${req.file.filename}`,
+      uploadedBy: req.user.id
+    });
+
+    await caseObj.save();
+    res.status(200).json({ success: true, data: caseObj });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
 
 // @desc    Update case status & notes (Specialist taking action)
 // @route   PUT /api/cases/:id
@@ -63,7 +98,9 @@ exports.updateCase = async (req, res) => {
     await caseObj.save();
     
     // Notify users of case update
-    io.getIo().emit('case_updated', caseObj);
+    if(io.getIo()) {
+        io.getIo().emit('case_updated', caseObj);
+    }
 
     res.status(200).json({ success: true, data: caseObj });
   } catch (error) {
